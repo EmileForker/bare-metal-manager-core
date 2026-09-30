@@ -16,23 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/NVIDIA/infra-controller/rest-api/api/internal/config"
-	"github.com/NVIDIA/infra-controller/rest-api/api/pkg/api/handler/util/common"
-	"github.com/NVIDIA/infra-controller/rest-api/api/pkg/api/model"
-	"github.com/NVIDIA/infra-controller/rest-api/api/pkg/api/model/util"
-	cdmu "github.com/NVIDIA/infra-controller/rest-api/api/pkg/api/model/util"
-	"github.com/NVIDIA/infra-controller/rest-api/api/pkg/api/pagination"
-	sc "github.com/NVIDIA/infra-controller/rest-api/api/pkg/client/site"
-	authz "github.com/NVIDIA/infra-controller/rest-api/auth/pkg/authorization"
-	"github.com/NVIDIA/infra-controller/rest-api/common/pkg/otelecho"
-	cutil "github.com/NVIDIA/infra-controller/rest-api/common/pkg/util"
-	sutil "github.com/NVIDIA/infra-controller/rest-api/common/pkg/util"
-	cdb "github.com/NVIDIA/infra-controller/rest-api/db/pkg/db"
-	cdbm "github.com/NVIDIA/infra-controller/rest-api/db/pkg/db/model"
-	cdbp "github.com/NVIDIA/infra-controller/rest-api/db/pkg/db/paginator"
-	cdbu "github.com/NVIDIA/infra-controller/rest-api/db/pkg/util"
-	corev1 "github.com/NVIDIA/infra-controller/rest-api/proto/core/gen/v1"
-	swe "github.com/NVIDIA/infra-controller/rest-api/site-workflow/pkg/error"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/rs/zerolog"
@@ -48,6 +31,22 @@ import (
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
 	"gopkg.in/yaml.v3"
+
+	"github.com/NVIDIA/infra-controller/rest-api/api/internal/config"
+	"github.com/NVIDIA/infra-controller/rest-api/api/pkg/api/handler/util/common"
+	"github.com/NVIDIA/infra-controller/rest-api/api/pkg/api/model"
+	"github.com/NVIDIA/infra-controller/rest-api/api/pkg/api/model/util"
+	cdmu "github.com/NVIDIA/infra-controller/rest-api/api/pkg/api/model/util"
+	"github.com/NVIDIA/infra-controller/rest-api/api/pkg/api/pagination"
+	sc "github.com/NVIDIA/infra-controller/rest-api/api/pkg/client/site"
+	authz "github.com/NVIDIA/infra-controller/rest-api/auth/pkg/authorization"
+	cutil "github.com/NVIDIA/infra-controller/rest-api/common/pkg/util"
+	cdb "github.com/NVIDIA/infra-controller/rest-api/db/pkg/db"
+	cdbm "github.com/NVIDIA/infra-controller/rest-api/db/pkg/db/model"
+	cdbp "github.com/NVIDIA/infra-controller/rest-api/db/pkg/db/paginator"
+	cdbu "github.com/NVIDIA/infra-controller/rest-api/db/pkg/util"
+	corev1 "github.com/NVIDIA/infra-controller/rest-api/proto/core/gen/v1"
+	swe "github.com/NVIDIA/infra-controller/rest-api/site-workflow/pkg/error"
 )
 
 func assertDeletionAcceptedResponse(t *testing.T, body []byte) {
@@ -1398,7 +1397,7 @@ func TestCreateInstanceHandler_Handle(t *testing.T) {
 	tst4.Mock.On("TerminateWorkflow", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	// OTEL Spanner configuration
-	tracer, _, ctx := common.TestCommonTraceProviderSetup(t, ctx)
+	ctx = common.TestCommonTraceProviderSetup(t, ctx)
 
 	setupIbInactiveDevicesInstanceType := func(t *testing.T, allocName string, machineInactiveDevices []int) (*cdbm.InstanceType, *cdbm.Machine) {
 		ist := testInstanceBuildInstanceType(t, dbSession, ip, "ist-ib-inactive-"+uuid.NewString(), st1, cdbm.InstanceStatusReady)
@@ -4061,7 +4060,6 @@ func TestCreateInstanceHandler_Handle(t *testing.T) {
 			ec.SetParamValues(tt.args.reqOrg)
 			ec.Set("user", tt.args.reqUser)
 
-			ctx = context.WithValue(ctx, otelecho.TracerKey, tracer)
 			ec.SetRequest(ec.Request().WithContext(ctx))
 
 			if err := csh.Handle(ec); (err != nil) != tt.wantErr {
@@ -5071,7 +5069,7 @@ func TestUpdateInstanceHandler_Handle(t *testing.T) {
 	tst3.Mock.On("TerminateWorkflow", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	// OTEL Spanner configuration
-	tracer, _, ctx := common.TestCommonTraceProviderSetup(t, ctx)
+	ctx = common.TestCommonTraceProviderSetup(t, ctx)
 
 	ifcDAO := cdbm.NewInterfaceDAO(dbSession)
 
@@ -7813,7 +7811,6 @@ func TestUpdateInstanceHandler_Handle(t *testing.T) {
 			ec.SetParamValues(tt.args.reqOrg, tt.args.reqInstance)
 			ec.Set("user", tt.args.reqUser)
 
-			ctx = context.WithValue(ctx, otelecho.TracerKey, tracer)
 			ec.SetRequest(ec.Request().WithContext(ctx))
 
 			if tt.args.beforeHandle != nil {
@@ -8653,7 +8650,7 @@ func TestGetInstanceHandler_Handle(t *testing.T) {
 	tc := &tmocks.Client{}
 
 	// OTEL Spanner configuration
-	tracer, _, ctx := common.TestCommonTraceProviderSetup(t, ctx)
+	ctx = common.TestCommonTraceProviderSetup(t, ctx)
 
 	tests := []struct {
 		name    string
@@ -9002,7 +8999,6 @@ func TestGetInstanceHandler_Handle(t *testing.T) {
 			ec.SetParamValues(tt.args.reqOrg, tt.args.reqInstanceID)
 			ec.Set("user", tt.args.reqUser)
 
-			ctx = context.WithValue(ctx, otelecho.TracerKey, tracer)
 			ec.SetRequest(ec.Request().WithContext(ctx))
 
 			if err := csh.Handle(ec); (err != nil) != tt.wantErr {
@@ -9359,7 +9355,7 @@ func TestGetAllInstanceHandler_Handle(t *testing.T) {
 	tc := &tmocks.Client{}
 
 	// OTEL Spanner configuration
-	tracer, _, ctx := common.TestCommonTraceProviderSetup(t, ctx)
+	ctx = common.TestCommonTraceProviderSetup(t, ctx)
 
 	tests := []struct {
 		name    string
@@ -10554,7 +10550,6 @@ func TestGetAllInstanceHandler_Handle(t *testing.T) {
 			ec.SetParamValues(tt.args.reqOrg)
 			ec.Set("user", tt.args.reqUser)
 
-			ctx = context.WithValue(ctx, otelecho.TracerKey, tracer)
 			ec.SetRequest(ec.Request().WithContext(ctx))
 
 			if err := csh.Handle(ec); (err != nil) != tt.wantErr {
@@ -10813,7 +10808,7 @@ func TestDeleteInstanceHandler_Handle(t *testing.T) {
 	tcfg, _ := cfg.GetTemporalConfig()
 
 	// OTEL Spanner configuration
-	tracer, _, ctx := common.TestCommonTraceProviderSetup(t, ctx)
+	ctx = common.TestCommonTraceProviderSetup(t, ctx)
 
 	//
 	// Timeout mocking
@@ -11100,7 +11095,6 @@ func TestDeleteInstanceHandler_Handle(t *testing.T) {
 			ec.SetParamValues(tt.args.reqOrg, tt.args.reqInstance)
 			ec.Set("user", tt.args.reqUser)
 
-			ctx = context.WithValue(ctx, otelecho.TracerKey, tracer)
 			ec.SetRequest(ec.Request().WithContext(ctx))
 
 			if err := csh.Handle(ec); (err != nil) != tt.wantErr {
@@ -11204,12 +11198,11 @@ func TestNewCreateInstanceHandler(t *testing.T) {
 				scp:       scp,
 			},
 			want: CreateInstanceHandler{
-				dbSession:  dbSession,
-				tc:         tc,
-				cfg:        cfg,
-				dps:        nil,
-				scp:        scp,
-				tracerSpan: sutil.NewTracerSpan(),
+				dbSession: dbSession,
+				tc:        tc,
+				cfg:       cfg,
+				dps:       nil,
+				scp:       scp,
 			},
 		},
 	}
@@ -11253,12 +11246,11 @@ func TestNewUpdateInstanceHandler(t *testing.T) {
 				cfg:       cfg,
 			},
 			want: UpdateInstanceHandler{
-				dbSession:  dbSession,
-				tc:         tc,
-				scp:        scp,
-				cfg:        cfg,
-				dps:        nil,
-				tracerSpan: sutil.NewTracerSpan(),
+				dbSession: dbSession,
+				tc:        tc,
+				scp:       scp,
+				cfg:       cfg,
+				dps:       nil,
 			},
 		},
 	}
@@ -11295,10 +11287,9 @@ func TestNewGetInstanceHandler(t *testing.T) {
 				cfg:       cfg,
 			},
 			want: GetInstanceHandler{
-				dbSession:  dbSession,
-				tc:         tc,
-				cfg:        cfg,
-				tracerSpan: sutil.NewTracerSpan(),
+				dbSession: dbSession,
+				tc:        tc,
+				cfg:       cfg,
 			},
 		},
 	}
@@ -11336,10 +11327,9 @@ func TestNewGetAllInstanceHandler(t *testing.T) {
 				cfg:       cfg,
 			},
 			want: GetAllInstanceHandler{
-				dbSession:  dbSession,
-				tc:         tc,
-				cfg:        cfg,
-				tracerSpan: sutil.NewTracerSpan(),
+				dbSession: dbSession,
+				tc:        tc,
+				cfg:       cfg,
 			},
 		},
 	}
@@ -11386,11 +11376,10 @@ func TestNewDeleteInstanceHandler(t *testing.T) {
 				cfg:       cfg,
 			},
 			want: DeleteInstanceHandler{
-				dbSession:  dbSession,
-				tc:         tc,
-				scp:        scp,
-				cfg:        cfg,
-				tracerSpan: sutil.NewTracerSpan(),
+				dbSession: dbSession,
+				tc:        tc,
+				scp:       scp,
+				cfg:       cfg,
 			},
 		},
 	}
@@ -11473,7 +11462,7 @@ func TestInstanceHandler_GetStatusDetails(t *testing.T) {
 	}
 
 	// OTEL Spanner configuration
-	tracer, _, ctx := common.TestCommonTraceProviderSetup(t, ctx)
+	ctx = common.TestCommonTraceProviderSetup(t, ctx)
 
 	tests := []struct {
 		name          string
@@ -11534,7 +11523,6 @@ func TestInstanceHandler_GetStatusDetails(t *testing.T) {
 			ec.SetParamValues(tt.reqOrg, tt.reqInstanceID)
 			ec.Set("user", tt.reqUser)
 
-			ctx = context.WithValue(ctx, otelecho.TracerKey, tracer)
 			ec.SetRequest(ec.Request().WithContext(ctx))
 
 			assert.NoError(t, handler.Handle(ec))
